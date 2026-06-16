@@ -272,35 +272,40 @@ export const db: DBApi = {
 
   async saveSale(saleData, cartItems) {
     const created_at = new Date().toISOString();
+
     if (supabase) {
-      const { data: saleRes, error: saleErr } = await supabase
-        .from('sales')
-        .insert({ ...saleData, created_at })
-        .select()
-        .single();
-      if (saleErr) throw saleErr;
+      try {
+        const { data: saleRes, error: saleErr } = await supabase
+          .from('sales')
+          .insert({ ...saleData, created_at })
+          .select()
+          .single();
+        if (saleErr) throw saleErr;
 
-      const itemsToInsert = cartItems.map(item => ({
-        sale_id: saleRes.id,
-        product_id: item.id,
-        quantity: item.quantity,
-        unit_price: item.sale_price,
-        tax_rate: item.tax_rate,
-        subtotal: item.sale_price * item.quantity,
-        created_at,
-      }));
+        const itemsToInsert = cartItems.map(item => ({
+          sale_id: saleRes.id,
+          product_id: item.id,
+          quantity: item.quantity,
+          unit_price: item.sale_price,
+          tax_rate: item.tax_rate,
+          subtotal: item.sale_price * item.quantity,
+          created_at,
+        }));
 
-      const { error: itemsErr } = await supabase.from('sale_items').insert(itemsToInsert);
-      if (itemsErr) {
-        await supabase.from('sales').delete().eq('id', saleRes.id);
-        throw itemsErr;
+        const { error: itemsErr } = await supabase.from('sale_items').insert(itemsToInsert);
+        if (itemsErr) {
+          await supabase.from('sales').delete().eq('id', saleRes.id);
+          throw itemsErr;
+        }
+
+        const settings = await this.getSettings();
+        settings.current_invoice_sequence += 1;
+        await this.updateSettings(settings);
+
+        return { ...saleRes, items: itemsToInsert };
+      } catch (err) {
+        console.warn('Supabase falló, guardando en localStorage:', err);
       }
-
-      const settings = await this.getSettings();
-      settings.current_invoice_sequence += 1;
-      await this.updateSettings(settings);
-
-      return { ...saleRes, items: itemsToInsert };
     }
 
     // Fallback LocalStorage
