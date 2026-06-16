@@ -2,12 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { useApp } from '@/lib/contexts/AppContext';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import { db } from '@/services/db';
+import { Lock, KeyRound, LogOut } from 'lucide-react';
 import type { BusinessSettings } from '@/types/models';
 
 export default function SettingsPage() {
   const { settings, loadAllData } = useApp();
+  const { changePin, logout } = useAuth();
   const [form, setForm] = useState<BusinessSettings | null>(null);
+
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [oldPin, setOldPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [pinSuccess, setPinSuccess] = useState(false);
 
   useEffect(() => {
     if (settings) setForm({ ...settings });
@@ -20,11 +30,30 @@ export default function SettingsPage() {
     catch (err) { console.error(err); }
   };
 
+  const handleChangePin = () => {
+    setPinError('');
+    setPinSuccess(false);
+    if (!oldPin || !newPin || !confirmPin) { setPinError('Complete todos los campos'); return; }
+    if (newPin.length < 4) { setPinError('El nuevo PIN debe tener al menos 4 dígitos'); return; }
+    if (newPin !== confirmPin) { setPinError('Los PINs nuevos no coinciden'); return; }
+    if (oldPin === newPin) { setPinError('El nuevo PIN debe ser diferente al actual'); return; }
+    if (changePin(oldPin, newPin)) {
+      setPinSuccess(true);
+      setOldPin('');
+      setNewPin('');
+      setConfirmPin('');
+      setTimeout(() => setShowPinModal(false), 1500);
+    } else {
+      setPinError('PIN actual incorrecto');
+    }
+  };
+
   if (!form) return null;
 
   return (
-    <div className="card">
-      <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.25rem', marginBottom: '1.5rem' }}>Parámetros Fiscales del Emisor</h3>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="card">
+        <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.25rem', marginBottom: '1.5rem' }}>Parámetros Fiscales del Emisor</h3>
       <form onSubmit={handleSaveSettings}>
         <div className="settings-form-grid">
           <div>
@@ -51,6 +80,60 @@ export default function SettingsPage() {
         </div>
         <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end' }}><button type="submit" className="btn btn-primary">Guardar Ajustes</button></div>
       </form>
+    </div>
+
+      {/* Security Section */}
+      <div className="card">
+        <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.25rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Lock size={18} /> Seguridad
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <button className="btn btn-outline" style={{ justifyContent: 'flex-start' }} onClick={() => { setShowPinModal(true); setPinSuccess(false); setPinError(''); }}>
+            <KeyRound size={16} /> Cambiar PIN de acceso
+          </button>
+          <button className="btn btn-outline" style={{ justifyContent: 'flex-start', color: 'var(--crimson, #EF4444)', borderColor: 'rgba(239,68,68,0.3)' }} onClick={logout}>
+            <LogOut size={16} /> Cerrar sesión
+          </button>
+        </div>
+      </div>
+
+      {/* PIN Change Modal */}
+      {showPinModal && (
+        <div className="modal-overlay" onClick={() => setShowPinModal(false)}>
+          <div className="modal-content" style={{ maxWidth: '380px' }} onClick={e => e.stopPropagation()}>
+            <h4 style={{ marginBottom: '1.25rem', fontWeight: 600 }}>Cambiar PIN de acceso</h4>
+
+            {pinSuccess ? (
+              <p style={{ color: 'var(--emerald, #22C55E)', textAlign: 'center', padding: '1rem' }}>¡PIN actualizado correctamente!</p>
+            ) : (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div className="form-group">
+                    <label>PIN actual</label>
+                    <input type="password" className="form-input" maxLength={4} inputMode="numeric"
+                      value={oldPin} onChange={e => setOldPin(e.target.value.replace(/\D/g, ''))} />
+                  </div>
+                  <div className="form-group">
+                    <label>Nuevo PIN</label>
+                    <input type="password" className="form-input" maxLength={4} inputMode="numeric"
+                      value={newPin} onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))} />
+                  </div>
+                  <div className="form-group">
+                    <label>Confirmar nuevo PIN</label>
+                    <input type="password" className="form-input" maxLength={4} inputMode="numeric"
+                      value={confirmPin} onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ''))} />
+                  </div>
+                </div>
+                {pinError && <p style={{ color: 'var(--crimson, #EF4444)', fontSize: '0.8rem', marginTop: '0.5rem' }}>{pinError}</p>}
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', justifyContent: 'flex-end' }}>
+                  <button className="btn btn-outline" onClick={() => setShowPinModal(false)}>Cancelar</button>
+                  <button className="btn btn-primary" onClick={handleChangePin}>Cambiar PIN</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

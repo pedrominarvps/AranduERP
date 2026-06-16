@@ -93,6 +93,7 @@ interface DBApi {
   deleteProduct(id: string): Promise<boolean>;
   getCustomers(): Promise<Customer[]>;
   saveCustomer(customer: Partial<Customer> & { id?: string }): Promise<Customer>;
+  deleteCustomer(id: string): Promise<boolean>;
   getSales(): Promise<(Sale & { customer_name: string; customer_ruc: string })[]>;
   getSaleDetails(saleId: string): Promise<SaleItem[]>;
   saveSale(saleData: {
@@ -193,6 +194,16 @@ export const db: DBApi = {
       if (!error && data) return data as Customer[];
     }
     return getLocalItem<Customer[]>('erp_customers');
+  },
+
+  async deleteCustomer(id) {
+    if (supabase) {
+      const { error } = await supabase.from('customers').delete().eq('id', id);
+      if (!error) return true;
+    }
+    const customers = getLocalItem<Customer[]>('erp_customers');
+    setLocalItem('erp_customers', customers.filter(c => c.id !== id));
+    return true;
   },
 
   async saveCustomer(customer) {

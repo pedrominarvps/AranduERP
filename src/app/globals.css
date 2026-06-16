@@ -1605,6 +1605,8 @@ button, input, select, textarea { font-family: inherit; color: inherit; }
 }
 
 /* === MÓVIL (<768px) === */
+.tab-bar-ios { display: none; }
+
 @media (max-width: 767px) {
 
   /* ---- SIDEBAR DRAWER ---- */
@@ -2072,9 +2074,4 @@ button, input, select, textarea { font-family: inherit; color: inherit; }
   .native-list { display: none !important; }
 }
 
-/* Hide mobile-only elements on desktop */
-.mobile-nav { display: none; }
-.mobile-cart-bar { display: none; }
-.mobile-cart-overlay { display: none; }
-.tab-bar-ios { display: none; }
 

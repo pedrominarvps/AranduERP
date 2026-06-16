@@ -1,13 +1,14 @@
-import { Plus, Edit2 } from 'lucide-react';
+import { Plus, Edit2, Trash2 } from 'lucide-react';
 import type { Customer } from '../../types/models';
 
 interface CustomersViewProps {
   customers: Customer[];
   onEdit: (customer: Customer) => void;
   onAdd: () => void;
+  onDelete: (customer: Customer) => void;
 }
 
-export function CustomersView({ customers, onEdit, onAdd }: CustomersViewProps) {
+export function CustomersView({ customers, onEdit, onAdd, onDelete }: CustomersViewProps) {
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
@@ -30,7 +31,10 @@ export function CustomersView({ customers, onEdit, onAdd }: CustomersViewProps) 
                   <td className="col-hide-mobile">{c.phone || 'S/N'}</td>
                   <td className="col-hide-mobile">{c.email || 'S/E'}</td>
                   <td className="col-hide-mobile">{c.address || 'S/D'}</td>
-                  <td style={{ textAlign: 'right' }}><button className="btn btn-secondary btn-icon-only" style={{ padding: '0.4rem' }} onClick={() => onEdit(c)}><Edit2 size={14} /></button></td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <button className="btn btn-secondary btn-icon-only" style={{ padding: '0.4rem', marginRight: '0.25rem' }} onClick={() => onEdit(c)}><Edit2 size={14} /></button>
+                    <button className="btn btn-secondary btn-icon-only" style={{ padding: '0.4rem', color: 'var(--crimson, #EF4444)' }} onClick={() => onDelete(c)}><Trash2 size={14} /></button>
+                  </td>
                 </tr>
               ))
             )}
@@ -59,6 +63,10 @@ export function CustomersView({ customers, onEdit, onAdd }: CustomersViewProps) 
                 </div>
               </div>
               <div className="native-list-end">
+                <button className="btn-icon-only" style={{ padding: '0.3rem', color: 'var(--crimson, #EF4444)', background: 'none', border: 'none', cursor: 'pointer' }}
+                  onClick={(e) => { e.stopPropagation(); onDelete(c); }}>
+                  <Trash2 size={16} />
+                </button>
                 <svg className="native-list-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
               </div>
             </div>

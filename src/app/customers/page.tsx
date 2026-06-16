@@ -24,12 +24,19 @@ export default function CustomersPage() {
     catch (err) { console.error(err); }
   };
 
+  const handleDeleteCustomer = async (cust: Customer) => {
+    if (!confirm(`¿Eliminar al cliente "${cust.name}" (${cust.ruc})?`)) return;
+    try { await db.deleteCustomer(cust.id); await loadAllData(); }
+    catch (err) { console.error(err); }
+  };
+
   return (
     <>
       <CustomersView
         customers={customers}
         onEdit={handleEditCustomer}
         onAdd={() => { setEditingCustomer(null); setCustomerForm({ ruc: '', name: '', phone: '', email: '', address: '' }); setIsCustomerModalOpen(true); }}
+        onDelete={handleDeleteCustomer}
       />
 
       {/* Customer Modal */}

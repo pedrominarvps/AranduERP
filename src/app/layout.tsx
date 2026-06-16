@@ -21,6 +21,14 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   const isLoginPage = pathname === '/login';
 
+  const activeTab: TabName = pathname === '/' ? 'pos' : (pathname.split('/')[1] as TabName) || 'pos';
+
+  const handleTabChange = useCallback((tab: TabName) => {
+    setSidebarOpen(false);
+    const path = tab === 'pos' ? '/pos' : `/${tab}`;
+    router.push(path);
+  }, [router]);
+
   useEffect(() => {
     if (!isLoginPage && !isAuthenticated) {
       router.replace('/login');
@@ -30,14 +38,6 @@ function Shell({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated && !isLoginPage) return null;
 
   if (isLoginPage) return <>{children}</>;
-
-  const activeTab: TabName = pathname === '/' ? 'pos' : (pathname.split('/')[1] as TabName) || 'pos';
-
-  const handleTabChange = useCallback((tab: TabName) => {
-    setSidebarOpen(false);
-    const path = tab === 'pos' ? '/pos' : `/${tab}`;
-    router.push(path);
-  }, [router]);
 
   return (
     <div className="app-container">
@@ -154,9 +154,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/logo.png" />
       </head>
       <body>
-        <AppProvider>
-          <Shell>{children}</Shell>
-        </AppProvider>
+        <AuthProvider>
+          <AppProvider>
+            <Shell>{children}</Shell>
+          </AppProvider>
+        </AuthProvider>
       </body>
     </html>
   );
