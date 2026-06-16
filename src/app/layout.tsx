@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import './globals.css';
 import { AppProvider, useApp } from '../lib/contexts/AppContext';
+import { AuthProvider, useAuth } from '../lib/contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { Sidebar } from '../components/layout/Sidebar';
 import { TopBar } from '../components/layout/TopBar';
@@ -12,10 +13,23 @@ import type { TabName } from '../types/enums';
 
 function Shell({ children }: { children: React.ReactNode }) {
   const { loading, printPayload } = useApp();
+  const { isAuthenticated } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+
+  const isLoginPage = pathname === '/login';
+
+  useEffect(() => {
+    if (!isLoginPage && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [isLoginPage, isAuthenticated, router]);
+
+  if (!isAuthenticated && !isLoginPage) return null;
+
+  if (isLoginPage) return <>{children}</>;
 
   const activeTab: TabName = pathname === '/' ? 'pos' : (pathname.split('/')[1] as TabName) || 'pos';
 
