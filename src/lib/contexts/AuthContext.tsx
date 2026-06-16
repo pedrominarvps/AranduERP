@@ -20,14 +20,12 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
     if (typeof window !== 'undefined') {
-      const session = localStorage.getItem(STORAGE_KEY);
-      if (session === 'true') setIsAuthenticated(true);
+      return localStorage.getItem(STORAGE_KEY) === 'true';
     }
-  }, []);
+    return false;
+  });
 
   const login = useCallback((pin: string): boolean => {
     const valid = getStoredPin();
