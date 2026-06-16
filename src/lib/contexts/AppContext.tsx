@@ -39,6 +39,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCategories(c);
       setCustomers(cust);
       setSales(sl as Sale[]);
+      // Auto-sync pending changes after loading fresh data
+      db.syncPendingChanges().catch(console.error);
     } catch (err) {
       console.error('Error al cargar datos base:', err);
     } finally {

@@ -86,6 +86,68 @@ const initLocalStorage = () => {
   if (!localStorage.getItem('erp_sales')) setLocalItem('erp_sales', []);
 };
 
+// --- SYNC ENGINE ---
+const SYNC_KEY = 'erp_sync_pending';
+
+async function checkConnection(): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase.from('company_settings').select('id').limit(1);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+function getPendingTables(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(SYNC_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function markPending(table: string) {
+  if (typeof window === 'undefined') return;
+  const existing = getPendingTables();
+  if (!existing.includes(table)) {
+    existing.push(table);
+    localStorage.setItem(SYNC_KEY, JSON.stringify(existing));
+  }
+}
+
+function clearPending() {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(SYNC_KEY);
+}
+
+async function syncPendingChanges(): Promise<void> {
+  if (!supabase) return;
+  const tables = getPendingTables();
+  if (tables.length === 0) return;
+  if (!await checkConnection()) return;
+
+  for (const table of tables) {
+    try {
+      const localKey = `erp_${table}`;
+      const localData = getLocalItem<any[]>(localKey);
+      if (!localData || localData.length === 0) continue;
+      const BATCH = 50;
+      for (let i = 0; i < localData.length; i += BATCH) {
+        const batch = localData.slice(i, i + BATCH);
+        const { error } = await supabase.from(table).upsert(batch);
+        if (error) throw error;
+      }
+    } catch (err) {
+      console.warn(`Error sync table "${table}", reintentará después:`, err);
+      return;
+    }
+  }
+  clearPending();
+}
+
+// --- HELPERS ---
+
 interface SaleRecord extends Sale {
   items?: SaleItem[];
 }
@@ -115,134 +177,82 @@ interface DBApi {
     received_amount: number;
     change_amount: number;
   }, cartItems: CartItem[]): Promise<SaleRecord>;
+  checkConnection(): Promise<boolean>;
+  syncPendingChanges(): Promise<void>;
 }
 
 export const db: DBApi = {
+  // --- READS: prefer Supabase, cache in localStorage ---
+
   async getSettings() {
     if (supabase) {
-      const { data, error } = await (supabase.from('company_settings') as any).select('*').limit(1).single();
-      if (!error && data) return data as BusinessSettings;
+      try {
+        const { data, error } = await (supabase.from('company_settings') as any).select('*').limit(1).single();
+        if (!error && data) {
+          setLocalItem('erp_settings', data as BusinessSettings);
+          return data as BusinessSettings;
+        }
+      } catch {}
     }
     return getLocalItem<BusinessSettings>('erp_settings');
   },
 
-  async updateSettings(settings) {
-    if (supabase) {
-      const { data, error } = await (supabase.from('company_settings') as any).upsert({ ...settings, updated_at: new Date() }).select().single();
-      if (!error && data) return data as BusinessSettings;
-    }
-    setLocalItem('erp_settings', settings);
-    return settings;
-  },
-
   async getCategories() {
     if (supabase) {
-      const { data, error } = await supabase.from('categories').select('*').order('name');
-      if (!error && data) return data as Category[];
+      try {
+        const { data, error } = await supabase.from('categories').select('*').order('name');
+        if (!error && data) {
+          setLocalItem('erp_categories', data as Category[]);
+          return data as Category[];
+        }
+      } catch {}
     }
     return getLocalItem<Category[]>('erp_categories');
   },
 
-  async saveCategory(category) {
-    if (supabase) {
-      const { data, error } = await supabase.from('categories').upsert(category).select().single();
-      if (!error && data) return data as Category;
-    }
-    const categories = getLocalItem<Category[]>('erp_categories');
-    if (category.id) {
-      const idx = categories.findIndex(c => c.id === category.id);
-      if (idx !== -1) categories[idx] = category as Category;
-    } else {
-      const newCat: Category = { ...category as Category, id: 'cat-' + Date.now() };
-      categories.push(newCat);
-    }
-    setLocalItem('erp_categories', categories);
-    return category as Category;
-  },
-
   async getProducts() {
     if (supabase) {
-      const { data, error } = await supabase.from('products').select('*').order('name');
-      if (!error && data) return data as Product[];
+      try {
+        const { data, error } = await supabase.from('products').select('*').order('name');
+        if (!error && data) {
+          setLocalItem('erp_products', data as Product[]);
+          return data as Product[];
+        }
+      } catch {}
     }
     return getLocalItem<Product[]>('erp_products');
   },
 
-  async saveProduct(product) {
-    if (supabase) {
-      const { data, error } = await supabase.from('products').upsert(product).select().single();
-      if (!error && data) return data as Product;
-    }
-    const products = getLocalItem<Product[]>('erp_products');
-    if (product.id) {
-      const idx = products.findIndex(p => p.id === product.id);
-      if (idx !== -1) products[idx] = product as Product;
-    } else {
-      const newProd: Product = { ...product as Product, id: 'prod-' + Date.now() };
-      products.push(newProd);
-    }
-    setLocalItem('erp_products', products);
-    return product as Product;
-  },
-
-  async deleteProduct(id) {
-    if (supabase) {
-      const { error } = await supabase.from('products').delete().eq('id', id);
-      if (!error) return true;
-    }
-    const products = getLocalItem<Product[]>('erp_products');
-    setLocalItem('erp_products', products.filter(p => p.id !== id));
-    return true;
-  },
-
   async getCustomers() {
     if (supabase) {
-      const { data, error } = await supabase.from('customers').select('*').order('name');
-      if (!error && data) return data as Customer[];
+      try {
+        const { data, error } = await supabase.from('customers').select('*').order('name');
+        if (!error && data) {
+          setLocalItem('erp_customers', data as Customer[]);
+          return data as Customer[];
+        }
+      } catch {}
     }
     return getLocalItem<Customer[]>('erp_customers');
   },
 
-  async deleteCustomer(id) {
-    if (supabase) {
-      const { error } = await supabase.from('customers').delete().eq('id', id);
-      if (!error) return true;
-    }
-    const customers = getLocalItem<Customer[]>('erp_customers');
-    setLocalItem('erp_customers', customers.filter(c => c.id !== id));
-    return true;
-  },
-
-  async saveCustomer(customer) {
-    if (supabase) {
-      const { data, error } = await supabase.from('customers').upsert(customer).select().single();
-      if (!error && data) return data as Customer;
-    }
-    const customers = getLocalItem<Customer[]>('erp_customers');
-    if (customer.id) {
-      const idx = customers.findIndex(c => c.id === customer.id);
-      if (idx !== -1) customers[idx] = customer as Customer;
-    } else {
-      const newCust: Customer = { ...customer as Customer, id: 'cust-' + Date.now() };
-      customers.push(newCust);
-    }
-    setLocalItem('erp_customers', customers);
-    return customer as Customer;
-  },
-
   async getSales() {
     if (supabase) {
-      const { data, error } = await supabase
-        .from('sales')
-        .select('*, customers(name, ruc)')
-        .order('created_at', { ascending: false });
-      if (!error && data) {
-        return (data as any[]).map(s => ({
-          ...s,
-          customer_name: s.customers?.name || 'Desconocido',
-          customer_ruc: s.customers?.ruc || '',
-        }));
-      }
+      try {
+        const { data, error } = await supabase
+          .from('sales')
+          .select('*, customers(name, ruc)')
+          .order('created_at', { ascending: false });
+        if (!error && data) {
+          const mapped = (data as any[]).map(s => ({
+            ...s,
+            customer_name: s.customers?.name || 'Desconocido',
+            customer_ruc: s.customers?.ruc || '',
+          }));
+          setLocalItem('erp_sales', mapped);
+          return mapped;
+        }
+      } catch {}
     }
     const sales = getLocalItem<SaleRecord[]>('erp_sales');
     const customers = getLocalItem<Customer[]>('erp_customers');
@@ -254,63 +264,133 @@ export const db: DBApi = {
 
   async getSaleDetails(saleId) {
     if (supabase) {
-      const { data, error } = await supabase
-        .from('sale_items')
-        .select('*, products(name)')
-        .eq('sale_id', saleId);
-      if (!error && data) {
-        return (data as any[]).map(i => ({
-          ...i,
-          product_name: i.products?.name || 'Producto eliminado',
-        }));
-      }
+      try {
+        const { data, error } = await supabase
+          .from('sale_items')
+          .select('*, products(name)')
+          .eq('sale_id', saleId);
+        if (!error && data) {
+          return (data as any[]).map(i => ({
+            ...i,
+            product_name: i.products?.name || 'Producto eliminado',
+          }));
+        }
+      } catch {}
     }
     const sales = getLocalItem<SaleRecord[]>('erp_sales');
     const sale = sales.find(s => s.id === saleId);
     return sale?.items || [];
   },
 
-  async saveSale(saleData, cartItems) {
-    const created_at = new Date().toISOString();
+  // --- WRITES: always persist to localStorage, then try Supabase in background ---
+
+  async updateSettings(settings) {
+    setLocalItem('erp_settings', settings);
+    if (supabase) {
+      try {
+        await supabase.from('company_settings').upsert({ ...settings, updated_at: new Date() });
+      } catch {
+        markPending('company_settings');
+      }
+    }
+    return settings;
+  },
+
+  async saveCategory(category) {
+    const categories = getLocalItem<Category[]>('erp_categories');
+    if (category.id) {
+      const idx = categories.findIndex(c => c.id === category.id);
+      if (idx !== -1) categories[idx] = category as Category;
+    } else {
+      const newCat: Category = { ...category as Category, id: 'cat-' + Date.now() };
+      categories.push(newCat);
+    }
+    setLocalItem('erp_categories', categories);
 
     if (supabase) {
       try {
-        const { data: saleRes, error: saleErr } = await supabase
-          .from('sales')
-          .insert({ ...saleData, created_at })
-          .select()
-          .single();
-        if (saleErr) throw saleErr;
-
-        const itemsToInsert = cartItems.map(item => ({
-          sale_id: saleRes.id,
-          product_id: item.id,
-          quantity: item.quantity,
-          unit_price: item.sale_price,
-          tax_rate: item.tax_rate,
-          subtotal: item.sale_price * item.quantity,
-          created_at,
-        }));
-
-        const { error: itemsErr } = await supabase.from('sale_items').insert(itemsToInsert);
-        if (itemsErr) {
-          await supabase.from('sales').delete().eq('id', saleRes.id);
-          throw itemsErr;
-        }
-
-        const settings = await this.getSettings();
-        settings.current_invoice_sequence += 1;
-        await this.updateSettings(settings);
-
-        return { ...saleRes, items: itemsToInsert };
-      } catch (err) {
-        console.warn('Supabase falló, guardando en localStorage:', err);
+        await supabase.from('categories').upsert(category);
+      } catch {
+        markPending('categories');
       }
     }
+    return category as Category;
+  },
 
-    // Fallback LocalStorage
-    const sales = getLocalItem<SaleRecord[]>('erp_sales');
+  async saveProduct(product) {
     const products = getLocalItem<Product[]>('erp_products');
+    if (product.id) {
+      const idx = products.findIndex(p => p.id === product.id);
+      if (idx !== -1) products[idx] = product as Product;
+    } else {
+      const newProd: Product = { ...product as Product, id: 'prod-' + Date.now() };
+      products.push(newProd);
+    }
+    setLocalItem('erp_products', products);
+
+    if (supabase) {
+      try {
+        await supabase.from('products').upsert(product);
+      } catch {
+        markPending('products');
+      }
+    }
+    return product as Product;
+  },
+
+  async deleteProduct(id) {
+    const products = getLocalItem<Product[]>('erp_products');
+    setLocalItem('erp_products', products.filter(p => p.id !== id));
+    if (supabase) {
+      try {
+        await supabase.from('products').delete().eq('id', id);
+      } catch {
+        markPending('products');
+      }
+    }
+    return true;
+  },
+
+  async saveCustomer(customer) {
+    const customers = getLocalItem<Customer[]>('erp_customers');
+    if (customer.id) {
+      const idx = customers.findIndex(c => c.id === customer.id);
+      if (idx !== -1) customers[idx] = customer as Customer;
+    } else {
+      const newCust: Customer = { ...customer as Customer, id: 'cust-' + Date.now() };
+      customers.push(newCust);
+    }
+    setLocalItem('erp_customers', customers);
+
+    if (supabase) {
+      try {
+        await supabase.from('customers').upsert(customer);
+      } catch {
+        markPending('customers');
+      }
+    }
+    return customer as Customer;
+  },
+
+  async deleteCustomer(id) {
+    const customers = getLocalItem<Customer[]>('erp_customers');
+    setLocalItem('erp_customers', customers.filter(c => c.id !== id));
+    if (supabase) {
+      try {
+        await supabase.from('customers').delete().eq('id', id);
+      } catch {
+        markPending('customers');
+      }
+    }
+    return true;
+  },
+
+  async saveSale(saleData, cartItems) {
+    const created_at = new Date().toISOString();
+
+    // Always save to localStorage first
+    const sales = getLocalItem<SaleRecord[]>('erp_sales');
+    const localProducts = getLocalItem<Product[]>('erp_products');
     const settings = getLocalItem<BusinessSettings>('erp_settings');
 
     const newSaleId = 'sale-' + Date.now();
@@ -344,18 +424,60 @@ export const db: DBApi = {
     };
 
     cartItems.forEach(cartItem => {
-      const idx = products.findIndex(p => p.id === cartItem.id);
+      const idx = localProducts.findIndex(p => p.id === cartItem.id);
       if (idx !== -1) {
-        products[idx].stock = Math.max(0, products[idx].stock - cartItem.quantity);
+        localProducts[idx].stock = Math.max(0, localProducts[idx].stock - cartItem.quantity);
       }
     });
 
     settings.current_invoice_sequence += 1;
     sales.push(newSale);
     setLocalItem('erp_sales', sales);
-    setLocalItem('erp_products', products);
+    setLocalItem('erp_products', localProducts);
     setLocalItem('erp_settings', settings);
 
+    // Try Supabase in background
+    if (supabase) {
+      try {
+        const { data: saleRes, error: saleErr } = await supabase
+          .from('sales')
+          .insert({ ...saleData, created_at })
+          .select()
+          .single();
+        if (!saleErr && saleRes) {
+          const itemsToInsert = cartItems.map(item => ({
+            sale_id: saleRes.id,
+            product_id: item.id,
+            quantity: item.quantity,
+            unit_price: item.sale_price,
+            tax_rate: item.tax_rate,
+            subtotal: item.sale_price * item.quantity,
+            created_at,
+          }));
+          const { error: itemsErr } = await supabase.from('sale_items').insert(itemsToInsert);
+          if (itemsErr) {
+            await supabase.from('sales').delete().eq('id', saleRes.id);
+            markPending('sales');
+            markPending('sale_items');
+          }
+        } else {
+          markPending('sales');
+          markPending('sale_items');
+        }
+      } catch {
+        markPending('sales');
+        markPending('sale_items');
+      }
+    }
+
     return newSale;
+  },
+
+  async checkConnection() {
+    return checkConnection();
+  },
+
+  async syncPendingChanges() {
+    return syncPendingChanges();
   },
 };
