@@ -1,5 +1,16 @@
 -- Esquema SQL de Base de Datos para Supabase (Arandu ERP)
 -- Copia y pega este script en el editor SQL de Supabase (SQL Editor) para inicializar tu base de datos.
+-- IMPORTANTE: Ejecuta este script ÚNICAMENTE si es la primera vez, o dropea todas las tablas antes.
+
+-- ============================================================
+-- 0. DROP TABLES EXISTENTES (para reiniciar)
+-- ============================================================
+DROP TABLE IF EXISTS sale_items CASCADE;
+DROP TABLE IF EXISTS sales CASCADE;
+DROP TABLE IF EXISTS products CASCADE;
+DROP TABLE IF EXISTS customers CASCADE;
+DROP TABLE IF EXISTS categories CASCADE;
+DROP TABLE IF EXISTS company_settings CASCADE;
 
 -- ============================================================
 -- 1. FUNCIÓN PARA UPDATED_AT (compartida entre tablas)
@@ -15,8 +26,8 @@ $$ LANGUAGE plpgsql;
 -- ============================================================
 -- 2. CONFIGURACIÓN DE LA EMPRESA
 -- ============================================================
-CREATE TABLE IF NOT EXISTS company_settings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE company_settings (
+    id TEXT PRIMARY KEY DEFAULT 'settings-1',
     business_name TEXT NOT NULL DEFAULT 'Mi Negocio ERP',
     ruc TEXT NOT NULL DEFAULT '80000000-1',
     phone TEXT DEFAULT '0981 123 456',
@@ -37,37 +48,37 @@ CREATE OR REPLACE TRIGGER trg_company_settings_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
-INSERT INTO company_settings (business_name, ruc, phone, address, timbrado_number, establishment_code, point_of_sale_code, current_invoice_sequence, receipt_footer)
-SELECT 'Mi Negocio ERP', '80000000-1', '0981 123 456', 'Asunción, Paraguay', '12345678', '001', '001', 1, '¡Gracias por su preferencia!'
-WHERE NOT EXISTS (SELECT 1 FROM company_settings LIMIT 1);
+INSERT INTO company_settings (id, business_name, ruc, phone, address, timbrado_number, establishment_code, point_of_sale_code, current_invoice_sequence, receipt_footer)
+VALUES ('settings-1', 'Mi Negocio ERP', '80000000-1', '0981 123 456', 'Asunción, Paraguay', '12345678', '001', '001', 1, '¡Gracias por su preferencia!')
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
 -- 3. CATEGORÍAS
 -- ============================================================
-CREATE TABLE IF NOT EXISTS categories (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE categories (
+    id TEXT PRIMARY KEY DEFAULT 'cat-' || to_char(now(), 'YYYYMMDDHH24MISS'),
     name TEXT NOT NULL UNIQUE,
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-INSERT INTO categories (name, description) VALUES
-    ('Bebidas', 'Gaseosas, jugos, aguas y bebidas en general'),
-    ('Lácteos', 'Leches, quesos, yogures'),
-    ('Almacén', 'Productos secos, fideos, arroz, aceites'),
-    ('Limpieza', 'Jabones, detergentes, desinfectantes'),
-    ('Varios', 'Otros productos sin categoría específica')
+INSERT INTO categories (id, name, description) VALUES
+    ('cat-1', 'Bebidas', 'Gaseosas, jugos, aguas y bebidas en general'),
+    ('cat-2', 'Lácteos', 'Leches, quesos, yogures'),
+    ('cat-3', 'Almacén', 'Productos secos, fideos, arroz, aceites'),
+    ('cat-4', 'Limpieza', 'Jabones, detergentes, desinfectantes'),
+    ('cat-5', 'Varios', 'Otros productos sin categoría específica')
 ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================
 -- 4. PRODUCTOS
 -- ============================================================
-CREATE TABLE IF NOT EXISTS products (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE products (
+    id TEXT PRIMARY KEY DEFAULT 'prod-' || to_char(now(), 'YYYYMMDDHH24MISS'),
     barcode TEXT UNIQUE,
     name TEXT NOT NULL,
     description TEXT,
-    category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+    category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
     cost_price NUMERIC NOT NULL DEFAULT 0,
     sale_price NUMERIC NOT NULL DEFAULT 0,
     tax_rate NUMERIC NOT NULL CHECK (tax_rate IN (0, 5, 10)),
@@ -80,19 +91,19 @@ CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);
 CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
 
-INSERT INTO products (barcode, name, description, cost_price, sale_price, tax_rate, stock, min_stock) VALUES
-    ('7840001000111', 'Leche Entera 1L', 'Leche entera UHT', 4500, 6500, 5, 20, 5),
-    ('7840001000222', 'Gaseosa Cola 2L', 'Gaseosa sabor cola familiar', 7000, 10000, 10, 15, 4),
-    ('7840001000333', 'Arroz Premium 1Kg', 'Arroz tipo 1', 3800, 5500, 5, 30, 10),
-    ('7840001000444', 'Detergente Líquido 500ml', 'Detergente lavavajilla aroma limón', 4000, 6000, 10, 12, 3),
-    ('7840001000555', 'Pan Felipe (Kg)', 'Pan fresco del día (Exento de IVA)', 6000, 8000, 0, 5, 2)
+INSERT INTO products (id, barcode, name, description, category_id, cost_price, sale_price, tax_rate, stock, min_stock) VALUES
+    ('prod-1', '7840001000111', 'Leche Entera 1L', 'Leche entera UHT', 'cat-2', 4500, 6500, 5, 20, 5),
+    ('prod-2', '7840001000222', 'Gaseosa Cola 2L', 'Gaseosa sabor cola familiar', 'cat-1', 7000, 10000, 10, 15, 4),
+    ('prod-3', '7840001000333', 'Arroz Premium 1Kg', 'Arroz tipo 1', 'cat-3', 3800, 5500, 5, 30, 10),
+    ('prod-4', '7840001000444', 'Detergente Líquido 500ml', 'Detergente lavavajilla aroma limón', 'cat-4', 4000, 6000, 10, 12, 3),
+    ('prod-5', '7840001000555', 'Pan Felipe (Kg)', 'Pan fresco del día (Exento de IVA)', 'cat-3', 6000, 8000, 0, 5, 2)
 ON CONFLICT (barcode) DO NOTHING;
 
 -- ============================================================
 -- 5. CLIENTES
 -- ============================================================
-CREATE TABLE IF NOT EXISTS customers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE customers (
+    id TEXT PRIMARY KEY DEFAULT 'cust-' || to_char(now(), 'YYYYMMDDHH24MISS'),
     ruc TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
     phone TEXT,
@@ -103,21 +114,21 @@ CREATE TABLE IF NOT EXISTS customers (
 
 CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);
 
-INSERT INTO customers (ruc, name, phone, email, address) VALUES
-    ('44444401-7', 'Sin Nombre (Cliente Ocasional)', '', '', ''),
-    ('80012345-6', 'Distribuidora Central S.A.', '021 500 600', 'contacto@distribuidora.com.py', 'Aviadores del Chaco, Asunción')
+INSERT INTO customers (id, ruc, name, phone, email, address) VALUES
+    ('cust-1', '44444401-7', 'Sin Nombre (Cliente Ocasional)', '', '', ''),
+    ('cust-2', '80012345-6', 'Distribuidora Central S.A.', '021 500 600', 'contacto@distribuidora.com.py', 'Aviadores del Chaco, Asunción')
 ON CONFLICT (ruc) DO NOTHING;
 
 -- ============================================================
 -- 6. VENTAS (Cabecera)
 -- ============================================================
-CREATE TABLE IF NOT EXISTS sales (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE sales (
+    id TEXT PRIMARY KEY DEFAULT 'sale-' || to_char(now(), 'YYYYMMDDHH24MISS'),
     invoice_number TEXT NOT NULL,
     timbrado TEXT NOT NULL,
-    customer_id UUID REFERENCES customers(id) ON DELETE RESTRICT,
-    customer_name TEXT,          -- Desnormalizado para preservar el nombre histórico
-    customer_ruc TEXT,           -- Desnormalizado para preservar el RUC histórico
+    customer_id TEXT REFERENCES customers(id) ON DELETE RESTRICT,
+    customer_name TEXT,
+    customer_ruc TEXT,
     total NUMERIC NOT NULL DEFAULT 0,
     total_iva_5 NUMERIC NOT NULL DEFAULT 0,
     total_iva_10 NUMERIC NOT NULL DEFAULT 0,
@@ -135,11 +146,11 @@ CREATE INDEX IF NOT EXISTS idx_sales_invoice_number ON sales(invoice_number);
 -- ============================================================
 -- 7. DETALLES DE VENTA (Items)
 -- ============================================================
-CREATE TABLE IF NOT EXISTS sale_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    sale_id UUID NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
-    product_id UUID REFERENCES products(id) ON DELETE SET NULL,
-    product_name TEXT,           -- Desnormalizado para preservar el nombre histórico del producto
+CREATE TABLE sale_items (
+    id TEXT PRIMARY KEY DEFAULT 'item-' || to_char(now(), 'YYYYMMDDHH24MISS'),
+    sale_id TEXT NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+    product_id TEXT REFERENCES products(id) ON DELETE SET NULL,
+    product_name TEXT,
     quantity NUMERIC NOT NULL DEFAULT 1 CHECK (quantity > 0),
     unit_price NUMERIC NOT NULL DEFAULT 0,
     tax_rate NUMERIC NOT NULL CHECK (tax_rate IN (0, 5, 10)),
@@ -174,9 +185,6 @@ CREATE TRIGGER trg_update_stock_on_sale
 -- ============================================================
 -- 9. POLÍTICAS RLS (Row Level Security)
 -- ============================================================
--- Habilita RLS en cada tabla y permite acceso público anónimo
--- (Ajusta según tu esquema de autenticación)
-
 ALTER TABLE company_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
@@ -184,7 +192,6 @@ ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
 
--- Políticas de acceso público (anónimo) para operaciones CRUD
 CREATE POLICY "Acceso público anónimo" ON company_settings FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso público anónimo" ON categories FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso público anónimo" ON products FOR ALL USING (true) WITH CHECK (true);
