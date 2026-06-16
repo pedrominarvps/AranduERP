@@ -4,7 +4,14 @@ import type { Product, Sale, SaleItem, Customer, BusinessSettings, Category, Car
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string | undefined;
 
-export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
+function isValidUrl(str: string | undefined): boolean {
+  if (!str) return false;
+  if (!str.startsWith('http://') && !str.startsWith('https://')) return false;
+  try { new URL(str); return true; }
+  catch { return false; }
+}
+
+export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey && isValidUrl(supabaseUrl));
 
 let supabase: any = null;
 if (isSupabaseConfigured) {
