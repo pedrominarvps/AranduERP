@@ -74,6 +74,11 @@ function setLocalItem<T>(key: string, value: T): void {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+function removeLocalItem(key: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(key);
+}
+
 let localStorageInitialized = false;
 const initLocalStorage = () => {
   if (typeof window === 'undefined') return;
@@ -119,6 +124,27 @@ function markPending(table: string) {
 function clearPending() {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(SYNC_KEY);
+  // Also clean up delete queues
+  ['company_settings', 'categories', 'products', 'customers', 'sales', 'sale_items'].forEach(t => {
+    removeLocalItem(`erp_sync_deletes_${t}`);
+  });
+}
+
+function getDeleteQueue(table: string): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(`erp_sync_deletes_${table}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function markDelete(table: string, id: string) {
+  if (typeof window === 'undefined') return;
+  const queue = getDeleteQueue(table);
+  if (!queue.includes(id)) {
+    queue.push(id);
+    setLocalItem(`erp_sync_deletes_${table}`, queue);
+  }
 }
 
 async function syncPendingChanges(): Promise<void> {
@@ -128,6 +154,19 @@ async function syncPendingChanges(): Promise<void> {
   if (!await checkConnection()) return;
 
   for (const table of tables) {
+    // 1. Process pending deletes for this table first
+    const deleteIds = getDeleteQueue(table);
+    for (const id of deleteIds) {
+      try {
+        await supabase.from(table).delete().eq('id', id);
+      } catch (err) {
+        console.warn(`Error sync delete ${table}.${id}:`, err);
+        return; // Retry next time
+      }
+    }
+    removeLocalItem(`erp_sync_deletes_${table}`);
+
+    // 2. Upsert all current local data
     try {
       const localKey = `erp_${table}`;
       const localData = getLocalItem<any[]>(localKey);
@@ -282,7 +321,7 @@ export const db: DBApi = {
     return sale?.items || [];
   },
 
-  // --- WRITES: always persist to localStorage, then try Supabase in background ---
+  // --- WRITES: always persist to localStorage, then try Supabase ---
 
   async updateSettings(settings) {
     setLocalItem('erp_settings', settings);
@@ -298,44 +337,48 @@ export const db: DBApi = {
 
   async saveCategory(category) {
     const categories = getLocalItem<Category[]>('erp_categories');
+    let saved: Category;
     if (category.id) {
       const idx = categories.findIndex(c => c.id === category.id);
       if (idx !== -1) categories[idx] = category as Category;
+      saved = category as Category;
     } else {
-      const newCat: Category = { ...category as Category, id: 'cat-' + Date.now() };
-      categories.push(newCat);
+      saved = { ...category as Category, id: 'cat-' + Date.now() };
+      categories.push(saved);
     }
     setLocalItem('erp_categories', categories);
 
     if (supabase) {
       try {
-        await supabase.from('categories').upsert(category);
+        await supabase.from('categories').upsert(saved);
       } catch {
         markPending('categories');
       }
     }
-    return category as Category;
+    return saved;
   },
 
   async saveProduct(product) {
     const products = getLocalItem<Product[]>('erp_products');
+    let saved: Product;
     if (product.id) {
       const idx = products.findIndex(p => p.id === product.id);
       if (idx !== -1) products[idx] = product as Product;
+      saved = product as Product;
     } else {
-      const newProd: Product = { ...product as Product, id: 'prod-' + Date.now() };
-      products.push(newProd);
+      saved = { ...product as Product, id: 'prod-' + Date.now() };
+      products.push(saved);
     }
     setLocalItem('erp_products', products);
 
     if (supabase) {
       try {
-        await supabase.from('products').upsert(product);
+        await supabase.from('products').upsert(saved);
       } catch {
         markPending('products');
       }
     }
-    return product as Product;
+    return saved;
   },
 
   async deleteProduct(id) {
@@ -345,6 +388,7 @@ export const db: DBApi = {
       try {
         await supabase.from('products').delete().eq('id', id);
       } catch {
+        markDelete('products', id);
         markPending('products');
       }
     }
@@ -353,23 +397,25 @@ export const db: DBApi = {
 
   async saveCustomer(customer) {
     const customers = getLocalItem<Customer[]>('erp_customers');
+    let saved: Customer;
     if (customer.id) {
       const idx = customers.findIndex(c => c.id === customer.id);
       if (idx !== -1) customers[idx] = customer as Customer;
+      saved = customer as Customer;
     } else {
-      const newCust: Customer = { ...customer as Customer, id: 'cust-' + Date.now() };
-      customers.push(newCust);
+      saved = { ...customer as Customer, id: 'cust-' + Date.now() };
+      customers.push(saved);
     }
     setLocalItem('erp_customers', customers);
 
     if (supabase) {
       try {
-        await supabase.from('customers').upsert(customer);
+        await supabase.from('customers').upsert(saved);
       } catch {
         markPending('customers');
       }
     }
-    return customer as Customer;
+    return saved;
   },
 
   async deleteCustomer(id) {
@@ -379,6 +425,7 @@ export const db: DBApi = {
       try {
         await supabase.from('customers').delete().eq('id', id);
       } catch {
+        markDelete('customers', id);
         markPending('customers');
       }
     }
@@ -388,7 +435,6 @@ export const db: DBApi = {
   async saveSale(saleData, cartItems) {
     const created_at = new Date().toISOString();
 
-    // Always save to localStorage first
     const sales = getLocalItem<SaleRecord[]>('erp_sales');
     const localProducts = getLocalItem<Product[]>('erp_products');
     const settings = getLocalItem<BusinessSettings>('erp_settings');
@@ -436,7 +482,6 @@ export const db: DBApi = {
     setLocalItem('erp_products', localProducts);
     setLocalItem('erp_settings', settings);
 
-    // Try Supabase in background
     if (supabase) {
       try {
         const { data: saleRes, error: saleErr } = await supabase
