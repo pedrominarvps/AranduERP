@@ -17,16 +17,26 @@ function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [navigating, setNavigating] = useState(false);
+  const [pageKey, setPageKey] = useState(pathname);
 
   const isLoginPage = pathname === '/login';
 
   const activeTab: TabName = pathname === '/' ? 'pos' : (pathname.split('/')[1] as TabName) || 'pos';
 
+  // Detect when navigation completes — pathname changes means new page is ready
+  useEffect(() => {
+    setNavigating(false);
+    setPageKey(pathname);
+  }, [pathname]);
+
   const handleTabChange = useCallback((tab: TabName) => {
     setSidebarOpen(false);
     const path = tab === 'pos' ? '/pos' : `/${tab}`;
+    if (path === pathname) return; // already on this page
+    setNavigating(true);
     router.push(path);
-  }, [router]);
+  }, [router, pathname]);
 
   useEffect(() => {
     if (!isLoginPage && !isAuthenticated) {
@@ -40,11 +50,16 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-container">
+      {/* Navigation progress bar — appears instantly on tab change */}
+      {(navigating || loading) && <div className="nav-progress-bar" />}
+
       <div className={`sidebar-overlay ${isSidebarOpen ? 'visible' : ''}`} onClick={() => setSidebarOpen(false)} />
       <Sidebar activeTab={activeTab} isDarkMode={isDarkMode} isSidebarOpen={isSidebarOpen} onTabChange={handleTabChange} onToggleTheme={toggleTheme} />
       <main className={`main-content ${isSidebarOpen ? 'sidebar-open' : ''}`}>
-        <TopBar activeTab={activeTab} loading={loading} onHamburgerClick={() => setSidebarOpen(true)} />
-        {children}
+        <TopBar activeTab={activeTab} loading={loading || navigating} onHamburgerClick={() => setSidebarOpen(true)} />
+        <div key={pageKey} className="page-entering">
+          {children}
+        </div>
       </main>
       <MobileNav activeTab={activeTab} onTabChange={handleTabChange} />
 

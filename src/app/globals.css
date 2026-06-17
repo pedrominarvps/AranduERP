@@ -265,6 +265,62 @@ button, input, select, textarea { font-family: inherit; color: inherit; }
   margin-bottom: 2rem;
 }
 
+/* ==========================================
+   NAVIGATION PROGRESS BAR
+   ========================================== */
+.nav-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 9999;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.nav-progress-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--amber), #FCD34D, var(--amber));
+  background-size: 200% 100%;
+  animation: nav-progress-shimmer 1.2s ease infinite;
+}
+
+.nav-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 60px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: nav-progress-shine 1.2s ease infinite;
+}
+
+@keyframes nav-progress-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes nav-progress-shine {
+  0%   { transform: translateX(-100px); }
+  100% { transform: translateX(calc(100vw + 100px)); }
+}
+
+/* Page transition fade */
+.page-entering {
+  animation: page-fade-in 0.25s ease forwards;
+}
+
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+
+
 .page-title h1 {
   font-family: var(--font-display);
   font-weight: 700;

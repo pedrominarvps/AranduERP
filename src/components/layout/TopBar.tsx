@@ -1,4 +1,4 @@
-import { RefreshCw } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { isSupabaseConfigured } from '../../services/db';
 
 interface TopBarProps {
@@ -29,19 +29,21 @@ export function TopBar({ activeTab, loading, onHamburgerClick }: TopBarProps) {
         <h1>{title}</h1>
       </div>
 
-      <div className="conn-status" style={{
-        width: '8px', height: '8px', borderRadius: '50%',
-        background: isSupabaseConfigured ? 'var(--emerald)' : 'var(--text-3)',
-        boxShadow: isSupabaseConfigured ? '0 0 8px var(--emerald-glow)' : 'none',
-        flexShrink: 0,
-      }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        {loading && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--amber)', fontWeight: 500 }}>
+            <Loader2 className="animate-spin" size={15} />
+            <span>Cargando...</span>
+          </div>
+        )}
 
-      {loading && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', color: 'var(--accent-color)' }}>
-          <RefreshCw className="animate-spin" size={16} />
-          <span style={{ display: 'none' }}>Procesando...</span>
-        </div>
-      )}
+        <div className="conn-status" style={{
+          width: '8px', height: '8px', borderRadius: '50%',
+          background: isSupabaseConfigured ? 'var(--emerald)' : 'var(--text-3)',
+          boxShadow: isSupabaseConfigured ? '0 0 8px var(--emerald-glow)' : 'none',
+          flexShrink: 0,
+        }} />
+      </div>
     </header>
   );
 }

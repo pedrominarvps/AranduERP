@@ -79,11 +79,10 @@ function removeLocalItem(key: string): void {
   localStorage.removeItem(key);
 }
 
-let localStorageInitialized = false;
 const initLocalStorage = () => {
   if (typeof window === 'undefined') return;
-  if (localStorageInitialized) return;
-  localStorageInitialized = true;
+  // Verify each key individually instead of using a module-level flag
+  // that resets on Next.js HMR, which would overwrite real data with mock defaults.
   if (!localStorage.getItem('erp_settings')) setLocalItem('erp_settings', DEFAULT_SETTINGS);
   if (!localStorage.getItem('erp_categories')) setLocalItem('erp_categories', DEFAULT_CATEGORIES);
   if (!localStorage.getItem('erp_products')) setLocalItem('erp_products', DEFAULT_PRODUCTS);
