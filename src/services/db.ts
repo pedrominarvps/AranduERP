@@ -228,6 +228,7 @@ interface DBApi {
   syncPendingChanges(): Promise<void>;
   verifyPin(pin: string): Promise<boolean>;
   changePin(oldPin: string, newPin: string): Promise<boolean>;
+  deleteSale(id: string): Promise<boolean>;
 }
 
 export const db: DBApi = {
@@ -572,5 +573,42 @@ export const db: DBApi = {
 
   async syncPendingChanges() {
     return syncPendingChanges();
+  },
+
+  async deleteSale(id) {
+    const sales = getLocalItem<SaleRecord[]>('erp_sales');
+    const localProducts = getLocalItem<Product[]>('erp_products');
+    const saleToDelete = sales.find(s => s.id === id);
+    if (!saleToDelete) return false;
+
+    const items = saleToDelete.items || await this.getSaleDetails(id);
+
+    items.forEach(item => {
+      const idx = localProducts.findIndex(p => p.id === item.product_id);
+      if (idx !== -1) {
+        localProducts[idx].stock = Number(localProducts[idx].stock) + Number(item.quantity);
+      }
+    });
+
+    setLocalItem('erp_products', localProducts);
+    setLocalItem('erp_sales', sales.filter(s => s.id !== id));
+
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('sales').delete().eq('id', id);
+        if (error) throw error;
+        for (const item of items) {
+          const prod = localProducts.find(p => p.id === item.product_id);
+          if (prod) {
+            await supabase.from('products').update({ stock: prod.stock }).eq('id', prod.id);
+          }
+        }
+      } catch (err) {
+        markDelete('sales', id);
+        markPending('sales');
+        markPending('products');
+      }
+    }
+    return true;
   },
 };

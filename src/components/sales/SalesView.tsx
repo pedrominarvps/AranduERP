@@ -1,4 +1,4 @@
-import { Search, Printer, Receipt } from 'lucide-react';
+import { Search, Printer, Receipt, Trash2, FileText } from 'lucide-react';
 import type { Sale } from '../../types/models';
 import { formatPYG } from '../../utils/currency';
 import { Badge } from '../ui/Badge';
@@ -6,7 +6,8 @@ import { Badge } from '../ui/Badge';
 interface SalesViewProps {
   sales: Sale[];
   onViewDetails: (sale: Sale) => void;
-  onReprint: (sale: Sale) => void;
+  onReprint: (sale: Sale, type: 'ticket' | 'factura') => void;
+  onDelete: (sale: Sale) => void;
 }
 
 export function SalesView({ sales, onViewDetails, onReprint }: SalesViewProps) {
@@ -36,7 +37,9 @@ export function SalesView({ sales, onViewDetails, onReprint }: SalesViewProps) {
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                       <button className="btn btn-secondary btn-icon-only" style={{ padding: '0.4rem' }} onClick={() => onViewDetails(s)} title="Ver detalle"><Search size={14} /></button>
-                      <button className="btn btn-secondary btn-icon-only" style={{ padding: '0.4rem' }} onClick={() => onReprint(s)} title="Reimprimir"><Printer size={14} /></button>
+                      <button className="btn btn-secondary btn-icon-only" style={{ padding: '0.4rem' }} onClick={() => onReprint(s, 'ticket')} title="Imprimir Ticket Térmico"><Printer size={14} /></button>
+                      <button className="btn btn-secondary btn-icon-only" style={{ padding: '0.4rem' }} onClick={() => onReprint(s, 'factura')} title="Imprimir Factura A4"><FileText size={14} /></button>
+                      <button className="btn btn-icon-only" style={{ padding: '0.4rem', color: 'var(--crimson, #EF4444)', borderColor: 'rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)', cursor: 'pointer' }} onClick={() => onDelete(s)} title="Eliminar venta"><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -66,7 +69,7 @@ export function SalesView({ sales, onViewDetails, onReprint }: SalesViewProps) {
                   {formatPYG(Number(s.total))}
                 </div>
                 <button className="btn btn-secondary btn-icon-only" style={{ padding: '0.25rem', width: '28px', height: '28px' }}
-                  onClick={(e) => { e.stopPropagation(); onReprint(s); }}>
+                  onClick={(e) => { e.stopPropagation(); onReprint(s, 'ticket'); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
                 </button>
               </div>

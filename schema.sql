@@ -184,6 +184,25 @@ CREATE TRIGGER trg_update_stock_on_sale
     EXECUTE FUNCTION update_stock_on_sale();
 
 -- ============================================================
+-- 8.5. TRIGGER: RESTITUIR STOCK AL ELIMINAR VENTA
+-- ============================================================
+CREATE OR REPLACE FUNCTION restore_stock_on_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE products
+    SET stock = stock + OLD.quantity
+    WHERE id = OLD.product_id;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_restore_stock_on_delete ON sale_items;
+CREATE TRIGGER trg_restore_stock_on_delete
+    AFTER DELETE ON sale_items
+    FOR EACH ROW
+    EXECUTE FUNCTION restore_stock_on_delete();
+
+-- ============================================================
 -- 9. POLÍTICAS RLS (Row Level Security)
 -- ============================================================
 ALTER TABLE company_settings ENABLE ROW LEVEL SECURITY;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Printer } from 'lucide-react';
+import { Printer, FileText, Trash2 } from 'lucide-react';
 import { useApp } from '@/lib/contexts/AppContext';
 import { db } from '@/services/db';
 import { formatPYG } from '@/utils/currency';
@@ -20,17 +20,37 @@ export default function SalesPage() {
     catch (err) { console.error(err); }
   };
 
-  const handleReprintSale = async (sale: Sale) => {
+  const handleReprintSale = async (sale: Sale, type: 'ticket' | 'factura') => {
     try {
       const items = await db.getSaleDetails(sale.id);
-      setPrintPayload({ sale, items, settings, type: 'ticket' });
+      setPrintPayload({ sale, items, settings, type });
       setTimeout(() => window.print(), 500);
     } catch (err) { console.error(err); }
   };
 
+  const handleDeleteSale = async (sale: Sale) => {
+    const confirmDelete = window.confirm(
+      `¿Está seguro de que desea eliminar la venta Nro: ${sale.invoice_number}? Esta acción no se puede deshacer y restablecerá el stock.`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const success = await db.deleteSale(sale.id);
+      if (success) {
+        alert('Venta eliminada correctamente.');
+        await loadAllData();
+      } else {
+        alert('No se pudo encontrar la venta a eliminar.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Ocurrió un error al intentar eliminar la venta.');
+    }
+  };
+
   return (
     <>
-      <SalesView sales={sales} onViewDetails={handleViewSaleDetails} onReprint={handleReprintSale} />
+      <SalesView sales={sales} onViewDetails={handleViewSaleDetails} onReprint={handleReprintSale} onDelete={handleDeleteSale} />
 
       {/* Sale Detail Modal */}
       {isSaleDetailModalOpen && activeSaleDetail && (
@@ -62,9 +82,17 @@ export default function SalesPage() {
                 <span>Total:</span><span>{formatPYG(Number(activeSaleDetail.total))}</span>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setIsSaleDetailModalOpen(false)}>Cerrar</button>
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => { handleReprintSale(activeSaleDetail); setIsSaleDetailModalOpen(false); }}><Printer size={16} /><span>Reimprimir</span></button>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+              <button className="btn btn-secondary" style={{ flex: '1 1 100%' }} onClick={() => setIsSaleDetailModalOpen(false)}>Cerrar</button>
+              <button className="btn btn-primary" style={{ flex: '1 1 45%', gap: '0.5rem', justifyContent: 'center' }} onClick={() => { handleReprintSale(activeSaleDetail, 'ticket'); setIsSaleDetailModalOpen(false); }}>
+                <Printer size={16} /><span>Ticket 80mm</span>
+              </button>
+              <button className="btn btn-primary" style={{ flex: '1 1 45%', gap: '0.5rem', justifyContent: 'center', background: 'var(--accent-glow, #3B82F6)', borderColor: 'var(--accent-glow, #3B82F6)', color: '#fff' }} onClick={() => { handleReprintSale(activeSaleDetail, 'factura'); setIsSaleDetailModalOpen(false); }}>
+                <FileText size={16} /><span>Factura A4</span>
+              </button>
+              <button className="btn" style={{ flex: '1 1 100%', gap: '0.5rem', justifyContent: 'center', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--crimson, #EF4444)', border: '1px solid rgba(239, 68, 68, 0.2)', cursor: 'pointer' }} onClick={() => { handleDeleteSale(activeSaleDetail); setIsSaleDetailModalOpen(false); }}>
+                <Trash2 size={16} /><span>Eliminar Venta</span>
+              </button>
             </div>
           </div>
         </div>
