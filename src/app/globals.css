@@ -1759,12 +1759,11 @@ button, input, select, textarea { font-family: inherit; color: inherit; }
     display: flex;
     gap: 0.35rem;
     overflow-x: auto;
-    padding: 0;
+    margin: 0;
     scrollbar-width: none;
     -ms-overflow-style: none;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
-    margin-bottom: 0.15rem;
   }
   .categories-scroll::-webkit-scrollbar { display: none; }
   .category-pill { scroll-snap-align: start; }
@@ -1892,6 +1891,9 @@ button, input, select, textarea { font-family: inherit; color: inherit; }
     flex-direction: column;
     gap: 0;
     height: auto;
+  }
+  .pos-products-panel {
+    gap: 0.65rem;
   }
 
   /* Hide desktop cart panel on tablet/mobile, use floating bar instead */
