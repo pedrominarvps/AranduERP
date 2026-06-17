@@ -624,7 +624,12 @@ export const db: DBApi = {
     let totalProfit = 0;
 
     for (const sale of sales) {
-      const items = sale.items || [];
+      let items = sale.items || [];
+      if (items.length === 0 && supabase) {
+        try {
+          items = await this.getSaleDetails(sale.id);
+        } catch {}
+      }
       for (const item of items) {
         const product = products.find(p => p.id === item.product_id);
         if (product) {
