@@ -116,4 +116,4 @@ src/
 
 ## Licencia
 
-Uso interno.
+MIT. Ver [LICENSE](LICENSE).
