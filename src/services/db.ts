@@ -229,6 +229,7 @@ interface DBApi {
   verifyPin(pin: string): Promise<boolean>;
   changePin(oldPin: string, newPin: string): Promise<boolean>;
   deleteSale(id: string): Promise<boolean>;
+  getTotalProfit(): Promise<number>;
 }
 
 export const db: DBApi = {
@@ -610,5 +611,26 @@ export const db: DBApi = {
       }
     }
     return true;
+  },
+
+  async getTotalProfit() {
+    const sales = getLocalItem<SaleRecord[]>('erp_sales');
+    const products = getLocalItem<Product[]>('erp_products');
+    let totalProfit = 0;
+
+    for (const sale of sales) {
+      const items = sale.items || [];
+      for (const item of items) {
+        const product = products.find(p => p.id === item.product_id);
+        if (product) {
+          const cost = Number(product.cost_price);
+          const price = Number(item.unit_price);
+          const qty = Number(item.quantity);
+          totalProfit += (price - cost) * qty;
+        }
+      }
+    }
+
+    return totalProfit;
   },
 };

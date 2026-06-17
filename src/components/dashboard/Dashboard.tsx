@@ -1,4 +1,4 @@
-import { Calculator, Receipt, AlertTriangle, Users } from 'lucide-react';
+import { Calculator, Receipt, AlertTriangle, Users, TrendingUp } from 'lucide-react';
 import type { Product, Sale } from '../../types/models';
 import { formatPYG } from '../../utils/currency';
 import { Badge } from '../ui/Badge';
@@ -7,6 +7,7 @@ interface DashboardProps {
   products: Product[];
   sales: Sale[];
   customers: { length: number };
+  totalProfit: number;
 }
 
 function calculateDashboardStats(products: Product[], sales: Sale[]) {
@@ -37,7 +38,7 @@ function calculateDashboardStats(products: Product[], sales: Sale[]) {
   };
 }
 
-export function Dashboard({ products, sales, customers }: DashboardProps) {
+export function Dashboard({ products, sales, customers, totalProfit }: DashboardProps) {
   const stats = calculateDashboardStats(products, sales);
 
   return (
@@ -69,6 +70,13 @@ export function Dashboard({ products, sales, customers }: DashboardProps) {
           <div className="stat-info">
             <div className="stat-value">{customers.length}</div>
             <div className="stat-label">Clientes en Base</div>
+          </div>
+        </div>
+        <div className="card stat-card">
+          <div className="stat-icon success"><TrendingUp size={28} /></div>
+          <div className="stat-info">
+            <div className="stat-value">{formatPYG(totalProfit)}</div>
+            <div className="stat-label">Margen de Ganancia</div>
           </div>
         </div>
       </div>
