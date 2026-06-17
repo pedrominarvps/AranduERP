@@ -296,11 +296,16 @@ export const db: DBApi = {
           .select('*, customers(name, ruc)')
           .order('created_at', { ascending: false });
         if (!error && data) {
-          const mapped = (data as any[]).map(s => ({
-            ...s,
-            customer_name: s.customers?.name || 'Desconocido',
-            customer_ruc: s.customers?.ruc || '',
-          }));
+          const existingSales = getLocalItem<SaleRecord[]>('erp_sales');
+          const mapped = (data as any[]).map(s => {
+            const existing = existingSales.find(e => e.id === s.id);
+            return {
+              ...s,
+              customer_name: s.customers?.name || 'Desconocido',
+              customer_ruc: s.customers?.ruc || '',
+              items: existing?.items || [],
+            };
+          });
           setLocalItem('erp_sales', mapped);
           return mapped;
         }
