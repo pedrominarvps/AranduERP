@@ -12,7 +12,7 @@ import type { TabName } from '../types/enums';
 
 function Shell({ children }: { children: React.ReactNode }) {
   const { loading, printPayload } = useApp();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAuthLoaded } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
   const pathname = usePathname();
   const router = useRouter();
@@ -39,11 +39,12 @@ function Shell({ children }: { children: React.ReactNode }) {
   }, [router, pathname]);
 
   useEffect(() => {
-    if (!isLoginPage && !isAuthenticated) {
+    if (isAuthLoaded && !isLoginPage && !isAuthenticated) {
       router.replace('/login');
     }
-  }, [isLoginPage, isAuthenticated, router]);
+  }, [isLoginPage, isAuthenticated, isAuthLoaded, router]);
 
+  if (!isAuthLoaded) return null;
   if (!isAuthenticated && !isLoginPage) return null;
 
   if (isLoginPage) return <>{children}</>;

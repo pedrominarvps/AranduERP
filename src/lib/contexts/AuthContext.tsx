@@ -7,6 +7,7 @@ const STORAGE_KEY = 'arandu_session';
 
 interface AuthContextType {
   isAuthenticated: boolean;
+  isAuthLoaded: boolean;
   login: (pin: string) => Promise<boolean>;
   logout: () => void;
   changePin: (oldPin: string, newPin: string) => Promise<boolean>;
@@ -16,11 +17,13 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthLoaded, setIsAuthLoaded] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setIsAuthenticated(localStorage.getItem(STORAGE_KEY) === 'true');
     }
+    setIsAuthLoaded(true);
   }, []);
 
   const login = useCallback(async (pin: string): Promise<boolean> => {
@@ -43,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, changePin }}>
+    <AuthContext.Provider value={{ isAuthenticated, isAuthLoaded, login, logout, changePin }}>
       {children}
     </AuthContext.Provider>
   );
