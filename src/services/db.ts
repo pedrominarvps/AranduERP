@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Product, Sale, SaleItem, Customer, BusinessSettings, Category, CartItem } from '../types/models';
+import { stripHtml } from '../utils/sanitize';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string | undefined;
@@ -232,6 +233,31 @@ interface DBApi {
   getTotalProfit(): Promise<number>;
 }
 
+const PIN_HASH_KEY = 'erp_pin_hash';
+
+async function hashString(input: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(input);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function storePinHash(pin: string): void {
+  if (typeof window === 'undefined') return;
+  hashString(pin).then(hash => {
+    localStorage.setItem(PIN_HASH_KEY, hash);
+  });
+}
+
+async function verifyLocalPin(pin: string): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  const storedHash = localStorage.getItem(PIN_HASH_KEY);
+  if (!storedHash) return false;
+  const inputHash = await hashString(pin);
+  return inputHash === storedHash;
+}
+
 export const db: DBApi = {
   // --- READS: prefer Supabase, cache in localStorage ---
 
@@ -343,10 +369,12 @@ export const db: DBApi = {
 
   async updateSettings(settings) {
     const { access_pin, ...rest } = settings;
-    setLocalItem('erp_settings', rest);
+    const sanitized = { ...rest, business_name: stripHtml(rest.business_name || ''), address: stripHtml(rest.address || ''), phone: stripHtml(rest.phone || ''), receipt_footer: stripHtml(rest.receipt_footer || '') };
+    setLocalItem('erp_settings', sanitized);
+    if (access_pin) storePinHash(access_pin);
     if (supabase) {
       try {
-        await supabase.from('company_settings').update({ ...rest, updated_at: new Date() }).eq('id', settings.id);
+        await supabase.from('company_settings').update({ ...sanitized, updated_at: new Date() }).eq('id', settings.id);
       } catch {
         markPending('company_settings');
       }
@@ -363,42 +391,47 @@ export const db: DBApi = {
           .limit(1)
           .single();
         if (!error && data && data.access_pin) {
-          return data.access_pin === pin;
+          const valid = data.access_pin === pin;
+          if (valid) storePinHash(pin);
+          return valid;
         }
       } catch (err) {
         console.error('Error al verificar PIN en Supabase:', err);
       }
     }
-    return pin === '123456';
+    return verifyLocalPin(pin);
   },
 
   async changePin(oldPin: string, newPin: string) {
     const isValid = await this.verifyPin(oldPin);
     if (!isValid) return false;
 
+    let supabaseOk = false;
     if (supabase) {
       try {
         const { error } = await supabase
           .from('company_settings')
           .update({ access_pin: newPin, updated_at: new Date() })
           .eq('id', 'settings-1');
-        if (!error) return true;
+        if (!error) supabaseOk = true;
       } catch (err) {
         console.error('Error al cambiar PIN en Supabase:', err);
       }
     }
-    return false;
+    storePinHash(newPin);
+    return supabaseOk || true;
   },
 
   async saveCategory(category) {
+    const sanitized = { ...category, name: stripHtml(category.name || ''), description: stripHtml(category.description || '') };
     const categories = getLocalItem<Category[]>('erp_categories');
     let saved: Category;
-    if (category.id) {
-      const idx = categories.findIndex(c => c.id === category.id);
-      if (idx !== -1) categories[idx] = category as Category;
-      saved = category as Category;
+    if (sanitized.id) {
+      const idx = categories.findIndex(c => c.id === sanitized.id);
+      if (idx !== -1) categories[idx] = sanitized as Category;
+      saved = sanitized as Category;
     } else {
-      saved = { ...category as Category, id: 'cat-' + Date.now() };
+      saved = { ...sanitized as Category, id: 'cat-' + Date.now() };
       categories.push(saved);
     }
     setLocalItem('erp_categories', categories);
@@ -414,14 +447,15 @@ export const db: DBApi = {
   },
 
   async saveProduct(product) {
+    const sanitized = { ...product, name: stripHtml(product.name || ''), barcode: stripHtml(product.barcode || ''), description: stripHtml(product.description || '') };
     const products = getLocalItem<Product[]>('erp_products');
     let saved: Product;
-    if (product.id) {
-      const idx = products.findIndex(p => p.id === product.id);
-      if (idx !== -1) products[idx] = product as Product;
-      saved = product as Product;
+    if (sanitized.id) {
+      const idx = products.findIndex(p => p.id === sanitized.id);
+      if (idx !== -1) products[idx] = sanitized as Product;
+      saved = sanitized as Product;
     } else {
-      saved = { ...product as Product, id: 'prod-' + Date.now() };
+      saved = { ...sanitized as Product, id: 'prod-' + Date.now() };
       products.push(saved);
     }
     setLocalItem('erp_products', products);
@@ -451,14 +485,15 @@ export const db: DBApi = {
   },
 
   async saveCustomer(customer) {
+    const sanitized = { ...customer, name: stripHtml(customer.name || ''), ruc: stripHtml(customer.ruc || ''), phone: stripHtml(customer.phone || ''), email: stripHtml(customer.email || ''), address: stripHtml(customer.address || '') };
     const customers = getLocalItem<Customer[]>('erp_customers');
     let saved: Customer;
-    if (customer.id) {
-      const idx = customers.findIndex(c => c.id === customer.id);
-      if (idx !== -1) customers[idx] = customer as Customer;
-      saved = customer as Customer;
+    if (sanitized.id) {
+      const idx = customers.findIndex(c => c.id === sanitized.id);
+      if (idx !== -1) customers[idx] = sanitized as Customer;
+      saved = sanitized as Customer;
     } else {
-      saved = { ...customer as Customer, id: 'cust-' + Date.now() };
+      saved = { ...sanitized as Customer, id: 'cust-' + Date.now() };
       customers.push(saved);
     }
     setLocalItem('erp_customers', customers);
