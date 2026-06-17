@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { db } from '@/services/db';
 
 const STORAGE_KEY = 'arandu_session';
@@ -15,12 +15,13 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(STORAGE_KEY) === 'true';
+      setIsAuthenticated(localStorage.getItem(STORAGE_KEY) === 'true');
     }
-    return false;
-  });
+  }, []);
 
   const login = useCallback(async (pin: string): Promise<boolean> => {
     const valid = await db.verifyPin(pin);
