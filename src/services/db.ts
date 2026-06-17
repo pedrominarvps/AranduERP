@@ -36,6 +36,7 @@ const DEFAULT_SETTINGS: BusinessSettings = {
   point_of_sale_code: '001',
   current_invoice_sequence: 1,
   receipt_footer: '¡Gracias por su compra! Vuelva pronto.',
+  access_pin: '123456',
 };
 
 const DEFAULT_CATEGORIES: Category[] = [
@@ -173,8 +174,16 @@ async function syncPendingChanges(): Promise<void> {
       const BATCH = 50;
       for (let i = 0; i < localData.length; i += BATCH) {
         const batch = localData.slice(i, i + BATCH);
-        const { error } = await supabase.from(table).upsert(batch);
-        if (error) throw error;
+        if (table === 'company_settings') {
+          for (const settings of batch) {
+            const { access_pin, ...rest } = settings;
+            const { error } = await supabase.from('company_settings').update({ ...rest, updated_at: new Date() }).eq('id', settings.id);
+            if (error) throw error;
+          }
+        } else {
+          const { error } = await supabase.from(table).upsert(batch);
+          if (error) throw error;
+        }
       }
     } catch (err) {
       console.warn(`Error sync table "${table}", reintentará después:`, err);
@@ -217,6 +226,8 @@ interface DBApi {
   }, cartItems: CartItem[]): Promise<SaleRecord>;
   checkConnection(): Promise<boolean>;
   syncPendingChanges(): Promise<void>;
+  verifyPin(pin: string): Promise<boolean>;
+  changePin(oldPin: string, newPin: string): Promise<boolean>;
 }
 
 export const db: DBApi = {
@@ -227,7 +238,8 @@ export const db: DBApi = {
       try {
         const { data, error } = await (supabase.from('company_settings') as any).select('*').limit(1).single();
         if (!error && data) {
-          setLocalItem('erp_settings', data as BusinessSettings);
+          const { access_pin, ...rest } = data;
+          setLocalItem('erp_settings', rest as BusinessSettings);
           return data as BusinessSettings;
         }
       } catch {}
@@ -323,15 +335,52 @@ export const db: DBApi = {
   // --- WRITES: always persist to localStorage, then try Supabase ---
 
   async updateSettings(settings) {
-    setLocalItem('erp_settings', settings);
+    const { access_pin, ...rest } = settings;
+    setLocalItem('erp_settings', rest);
     if (supabase) {
       try {
-        await supabase.from('company_settings').upsert({ ...settings, updated_at: new Date() });
+        await supabase.from('company_settings').update({ ...rest, updated_at: new Date() }).eq('id', settings.id);
       } catch {
         markPending('company_settings');
       }
     }
     return settings;
+  },
+
+  async verifyPin(pin: string) {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('company_settings')
+          .select('access_pin')
+          .limit(1)
+          .single();
+        if (!error && data && data.access_pin) {
+          return data.access_pin === pin;
+        }
+      } catch (err) {
+        console.error('Error al verificar PIN en Supabase:', err);
+      }
+    }
+    return pin === '123456';
+  },
+
+  async changePin(oldPin: string, newPin: string) {
+    const isValid = await this.verifyPin(oldPin);
+    if (!isValid) return false;
+
+    if (supabase) {
+      try {
+        const { error } = await supabase
+          .from('company_settings')
+          .update({ access_pin: newPin, updated_at: new Date() })
+          .eq('id', 'settings-1');
+        if (!error) return true;
+      } catch (err) {
+        console.error('Error al cambiar PIN en Supabase:', err);
+      }
+    }
+    return false;
   },
 
   async saveCategory(category) {

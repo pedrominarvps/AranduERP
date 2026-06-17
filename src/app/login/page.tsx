@@ -10,23 +10,33 @@ export default function LoginPage() {
   const router = useRouter();
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (pin.length < 4) { setError('Ingrese el PIN de 4 dígitos'); return; }
-    if (login(pin)) {
-      router.replace('/pos');
-    } else {
-      setError('PIN incorrecto');
-      setPin('');
-      inputRef.current?.focus();
+    if (pin.length < 6) { setError('Ingrese el PIN de 6 dígitos'); return; }
+    setLoading(true);
+    try {
+      const success = await login(pin);
+      if (success) {
+        router.replace('/pos');
+      } else {
+        setError('PIN incorrecto');
+        setPin('');
+        inputRef.current?.focus();
+      }
+    } catch (err) {
+      setError('Error al iniciar sesión. Intente de nuevo.');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDigit = (d: string) => {
-    if (pin.length < 4) {
+    if (pin.length < 6) {
       setPin(prev => prev + d);
       setError('');
     }
@@ -55,15 +65,15 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit}>
           <div style={{
-            display: 'flex', justifyContent: 'center', gap: '0.75rem', marginBottom: '1.5rem',
+            display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.5rem',
           }}>
-            {[0, 1, 2, 3].map(i => (
+            {[0, 1, 2, 3, 4, 5].map(i => (
               <div key={i} style={{
-                width: '48px', height: '56px', borderRadius: '12px',
+                width: '40px', height: '48px', borderRadius: '10px',
                 background: 'var(--surface-2, #334155)',
                 border: pin[i] ? '2px solid var(--amber, #F59E0B)' : '2px solid var(--border, rgba(255,255,255,0.07))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)',
+                fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)',
                 transition: 'border-color 0.15s ease',
               }}>
                 {pin[i] ? '●' : ''}
@@ -110,14 +120,19 @@ export default function LoginPage() {
             }}>⌫</button>
           </div>
 
-          <button type="submit" style={{
+          <button type="submit" disabled={loading || pin.length !== 6} style={{
             width: '100%', padding: '0.875rem', fontSize: '1rem', fontWeight: 600,
-            background: pin.length === 4 ? 'var(--amber, #F59E0B)' : 'var(--surface-2, #334155)',
-            border: 'none', borderRadius: '12px', color: pin.length === 4 ? '#0D1117' : 'var(--text-3, #64748B)',
-            cursor: pin.length === 4 ? 'pointer' : 'default', transition: 'all 0.15s ease',
+            background: pin.length === 6 ? 'var(--amber, #F59E0B)' : 'var(--surface-2, #334155)',
+            border: 'none', borderRadius: '12px', color: pin.length === 6 ? '#0D1117' : 'var(--text-3, #64748B)',
+            cursor: pin.length === 6 && !loading ? 'pointer' : 'default', transition: 'all 0.15s ease',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+            opacity: loading ? 0.7 : 1,
           }}>
-            <Lock size={16} /> Ingresar
+            {loading ? 'Cargando...' : (
+              <>
+                <Lock size={16} /> Ingresar
+              </>
+            )}
           </button>
         </form>
       </div>

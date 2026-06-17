@@ -30,21 +30,33 @@ export default function SettingsPage() {
     catch (err) { console.error(err); }
   };
 
-  const handleChangePin = () => {
+  const [pinLoading, setPinLoading] = useState(false);
+
+  const handleChangePin = async () => {
     setPinError('');
     setPinSuccess(false);
     if (!oldPin || !newPin || !confirmPin) { setPinError('Complete todos los campos'); return; }
-    if (newPin.length < 4) { setPinError('El nuevo PIN debe tener al menos 4 dígitos'); return; }
+    if (newPin.length < 6) { setPinError('El nuevo PIN debe tener al menos 6 dígitos'); return; }
     if (newPin !== confirmPin) { setPinError('Los PINs nuevos no coinciden'); return; }
     if (oldPin === newPin) { setPinError('El nuevo PIN debe ser diferente al actual'); return; }
-    if (changePin(oldPin, newPin)) {
-      setPinSuccess(true);
-      setOldPin('');
-      setNewPin('');
-      setConfirmPin('');
-      setTimeout(() => setShowPinModal(false), 1500);
-    } else {
-      setPinError('PIN actual incorrecto');
+    
+    setPinLoading(true);
+    try {
+      const success = await changePin(oldPin, newPin);
+      if (success) {
+        setPinSuccess(true);
+        setOldPin('');
+        setNewPin('');
+        setConfirmPin('');
+        setTimeout(() => setShowPinModal(false), 1500);
+      } else {
+        setPinError('PIN actual incorrecto o error al conectar con Supabase');
+      }
+    } catch (err) {
+      setPinError('Error al cambiar el PIN');
+      console.error(err);
+    } finally {
+      setPinLoading(false);
     }
   };
 
@@ -110,24 +122,26 @@ export default function SettingsPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <div className="form-group">
                     <label>PIN actual</label>
-                    <input type="password" className="form-input" maxLength={4} inputMode="numeric"
-                      value={oldPin} onChange={e => setOldPin(e.target.value.replace(/\D/g, ''))} />
+                    <input type="password" className="form-input" maxLength={6} inputMode="numeric"
+                      value={oldPin} onChange={e => setOldPin(e.target.value.replace(/\D/g, ''))} disabled={pinLoading} />
                   </div>
                   <div className="form-group">
                     <label>Nuevo PIN</label>
-                    <input type="password" className="form-input" maxLength={4} inputMode="numeric"
-                      value={newPin} onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))} />
+                    <input type="password" className="form-input" maxLength={6} inputMode="numeric"
+                      value={newPin} onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))} disabled={pinLoading} />
                   </div>
                   <div className="form-group">
                     <label>Confirmar nuevo PIN</label>
-                    <input type="password" className="form-input" maxLength={4} inputMode="numeric"
-                      value={confirmPin} onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ''))} />
+                    <input type="password" className="form-input" maxLength={6} inputMode="numeric"
+                      value={confirmPin} onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ''))} disabled={pinLoading} />
                   </div>
                 </div>
                 {pinError && <p style={{ color: 'var(--crimson, #EF4444)', fontSize: '0.8rem', marginTop: '0.5rem' }}>{pinError}</p>}
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', justifyContent: 'flex-end' }}>
-                  <button className="btn btn-outline" onClick={() => setShowPinModal(false)}>Cancelar</button>
-                  <button className="btn btn-primary" onClick={handleChangePin}>Cambiar PIN</button>
+                  <button className="btn btn-outline" onClick={() => setShowPinModal(false)} disabled={pinLoading}>Cancelar</button>
+                  <button className="btn btn-primary" onClick={handleChangePin} disabled={pinLoading}>
+                    {pinLoading ? 'Cambiando...' : 'Cambiar PIN'}
+                  </button>
                 </div>
               </>
             )}

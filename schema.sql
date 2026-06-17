@@ -39,6 +39,7 @@ CREATE TABLE company_settings (
     point_of_sale_code TEXT NOT NULL DEFAULT '001',
     current_invoice_sequence INT NOT NULL DEFAULT 1,
     receipt_footer TEXT DEFAULT '¡Gracias por su preferencia!',
+    access_pin TEXT NOT NULL DEFAULT '123456',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -48,8 +49,8 @@ CREATE OR REPLACE TRIGGER trg_company_settings_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
-INSERT INTO company_settings (id, business_name, ruc, phone, address, timbrado_number, establishment_code, point_of_sale_code, current_invoice_sequence, receipt_footer)
-VALUES ('settings-1', 'Mi Negocio ERP', '80000000-1', '0981 123 456', 'Asunción, Paraguay', '12345678', '001', '001', 1, '¡Gracias por su preferencia!')
+INSERT INTO company_settings (id, business_name, ruc, phone, address, timbrado_number, establishment_code, point_of_sale_code, current_invoice_sequence, receipt_footer, access_pin)
+VALUES ('settings-1', 'Mi Negocio ERP', '80000000-1', '0981 123 456', 'Asunción, Paraguay', '12345678', '001', '001', 1, '¡Gracias por su preferencia!', '123456')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================

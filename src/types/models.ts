@@ -64,6 +64,7 @@ export interface BusinessSettings {
   point_of_sale_code: string;
   current_invoice_sequence: number;
   receipt_footer: string;
+  access_pin?: string;
 }
 
 export interface Category {

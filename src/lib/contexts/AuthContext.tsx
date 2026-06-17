@@ -1,20 +1,15 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { db } from '@/services/db';
 
 const STORAGE_KEY = 'arandu_session';
-const PIN_KEY = 'arandu_pin';
-
-function getStoredPin(): string {
-  if (typeof window === 'undefined') return '1234';
-  return localStorage.getItem(PIN_KEY) || '1234';
-}
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  login: (pin: string) => boolean;
+  login: (pin: string) => Promise<boolean>;
   logout: () => void;
-  changePin: (oldPin: string, newPin: string) => boolean;
+  changePin: (oldPin: string, newPin: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -27,9 +22,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   });
 
-  const login = useCallback((pin: string): boolean => {
-    const valid = getStoredPin();
-    if (pin === valid) {
+  const login = useCallback(async (pin: string): Promise<boolean> => {
+    const valid = await db.verifyPin(pin);
+    if (valid) {
       setIsAuthenticated(true);
       if (typeof window !== 'undefined') localStorage.setItem(STORAGE_KEY, 'true');
       return true;
@@ -42,11 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  const changePin = useCallback((oldPin: string, newPin: string): boolean => {
-    const current = getStoredPin();
-    if (oldPin !== current) return false;
-    if (typeof window !== 'undefined') localStorage.setItem(PIN_KEY, newPin);
-    return true;
+  const changePin = useCallback(async (oldPin: string, newPin: string): Promise<boolean> => {
+    return await db.changePin(oldPin, newPin);
   }, []);
 
   return (
