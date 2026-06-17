@@ -7,7 +7,6 @@ interface DashboardProps {
   products: Product[];
   sales: Sale[];
   customers: { length: number };
-  totalProfit: number;
 }
 
 function calculateDashboardStats(products: Product[], sales: Sale[]) {
@@ -15,6 +14,17 @@ function calculateDashboardStats(products: Product[], sales: Sale[]) {
   const todaySales = sales.filter(s => s.created_at.startsWith(todayStr));
   const totalTodayRevenue = todaySales.reduce((acc, s) => acc + Number(s.total), 0);
   const criticalProducts = products.filter(p => p.stock <= p.min_stock);
+
+  let totalProfit = 0;
+  for (const sale of sales) {
+    const items = (sale as any).items || [];
+    for (const item of items) {
+      const product = products.find(p => p.id === item.product_id);
+      if (product) {
+        totalProfit += (Number(item.unit_price) - Number(product.cost_price)) * Number(item.quantity);
+      }
+    }
+  }
 
   const weekdays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   const last7Days = Array.from({ length: 7 }).map((_, idx) => {
@@ -35,10 +45,11 @@ function calculateDashboardStats(products: Product[], sales: Sale[]) {
     criticalProducts,
     chartData: last7Days,
     maxChartValue: Math.max(...last7Days.map(d => d.value), 100000),
+    totalProfit,
   };
 }
 
-export function Dashboard({ products, sales, customers, totalProfit }: DashboardProps) {
+export function Dashboard({ products, sales, customers }: DashboardProps) {
   const stats = calculateDashboardStats(products, sales);
 
   return (
@@ -75,7 +86,7 @@ export function Dashboard({ products, sales, customers, totalProfit }: Dashboard
         <div className="card stat-card">
           <div className="stat-icon success"><TrendingUp size={28} /></div>
           <div className="stat-info">
-            <div className="stat-value">{formatPYG(totalProfit)}</div>
+            <div className="stat-value">{formatPYG(stats.totalProfit)}</div>
             <div className="stat-label">Margen de Ganancia</div>
           </div>
         </div>
