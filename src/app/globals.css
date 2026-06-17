@@ -315,8 +315,8 @@ button, input, select, textarea { font-family: inherit; color: inherit; }
 }
 
 @keyframes page-fade-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 
@@ -1041,7 +1041,7 @@ button, input, select, textarea { font-family: inherit; color: inherit; }
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 300;
+  z-index: 500;
   background: var(--card);
   border-top: 1px solid var(--border-mid);
   padding: 0.75rem 1rem;
