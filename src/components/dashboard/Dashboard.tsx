@@ -18,13 +18,19 @@ function calculateDashboardStats(products: Product[], sales: Sale[]) {
   let totalProfit = 0;
   for (const sale of sales) {
     const items = (sale as any).items || [];
+    console.log('Sale:', sale.invoice_number, 'items count:', items.length, 'items data:', items);
     for (const item of items) {
       const product = products.find(p => p.id === item.product_id);
       if (product) {
-        totalProfit += (Number(item.unit_price) - Number(product.cost_price)) * Number(item.quantity);
+        const profit = (Number(item.unit_price) - Number(product.cost_price)) * Number(item.quantity);
+        console.log('Item profit:', item.product_name, 'price:', item.unit_price, 'cost:', product.cost_price, 'qty:', item.quantity, 'profit:', profit);
+        totalProfit += profit;
+      } else {
+        console.log('Product not found for item:', item.product_name, 'product_id:', item.product_id);
       }
     }
   }
+  console.log('Total profit calculated:', totalProfit);
 
   const weekdays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   const last7Days = Array.from({ length: 7 }).map((_, idx) => {
