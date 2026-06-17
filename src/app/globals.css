@@ -1640,11 +1640,10 @@ button, input, select, textarea { font-family: inherit; color: inherit; }
     gap: 1rem;
   }
 
-  .pos-cart-panel {
-    height: auto;
-    min-height: 350px;
-    max-height: 60vh;
-  }
+  /* Use floating cart bar on tablet too (stays above sidebar overlay) */
+  .desktop-cart-panel { display: none; }
+  .mobile-cart-bar { display: block; }
+  .mobile-cart-overlay { display: block; }
 
   /* Stats en 2 columnas */
   .stats-grid {
@@ -1882,10 +1881,10 @@ button, input, select, textarea { font-family: inherit; color: inherit; }
     height: auto;
   }
 
-  /* Hide desktop cart panel on mobile */
+  /* Hide desktop cart panel on tablet/mobile, use floating bar instead */
   .desktop-cart-panel { display: none; }
 
-  /* Show mobile cart bar */
+  /* Show mobile cart bar on all non-desktop sizes */
   .mobile-cart-bar { display: block; }
   .mobile-cart-overlay { display: block; }
 
