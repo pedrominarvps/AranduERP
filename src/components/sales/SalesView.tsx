@@ -10,7 +10,7 @@ interface SalesViewProps {
   onDelete: (sale: Sale) => void;
 }
 
-export function SalesView({ sales, onViewDetails, onReprint }: SalesViewProps) {
+export function SalesView({ sales, onViewDetails, onReprint, onDelete }: SalesViewProps) {
   return (
     <div className="card">
       <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.25rem', marginBottom: '1.5rem' }}>Registro de Facturación Emitida</h3>
